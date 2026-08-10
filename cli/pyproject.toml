@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codemind-okf"
-version = "1.2.0"
+version = "1.2.1"
 description = "CodeMind OKF CLI — Generate AI-ready knowledge bundles for any codebase. Works with Cursor, Antigravity, GitHub Copilot, and any MCP-compatible AI IDE."
 readme = "README.md"
 license = { text = "MIT" }
@@ -53,13 +53,4 @@ where = ["."]
 include = ["codemind_okf*"]
 
 [tool.setuptools.package-data]
-"codemind_okf" = [
-    "templates/*",
-    "templates/*.yml",
-    "templates/*.txt",
-    "templates/modes/shared/*.md",
-    "templates/modes/antigravity/*.md",
-    "templates/modes/claude/*.md",
-    "templates/modes/copilot/*.md",
-    "templates/modes/cursor/*.md",
-]
+"codemind_okf" = ["templates/*", "templates/*.yml", "templates/*.txt"]

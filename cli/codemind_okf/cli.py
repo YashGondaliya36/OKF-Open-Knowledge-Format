@@ -30,13 +30,6 @@ from codemind_okf.core.parser import parse_file
 from codemind_okf.core.summarizer import summarize_fast
 from codemind_okf.core.writer import write_okf_file
 from codemind_okf.core.index_builder import build_index, append_to_log
-from codemind_okf.core.modes import (
-    IDE,
-    MODES,
-    detect_ides,
-    generate_modes,
-    init_okf_state_files,
-)
 
 app = typer.Typer(
     name="codemind",
@@ -217,162 +210,62 @@ def init(
         resolve_path=True,
     ),
     cursor: bool = typer.Option(True, help="Generate .cursorrules for Cursor AI."),
-    agents: bool = typer.Option(True, help="Generate .agents/AGENTS.md for Antigravity."),
+    agents: bool = typer.Option(True, help="Generate .agents/AGENTS.md for Antigravity/AI IDEs."),
     copilot: bool = typer.Option(True, help="Generate .github/copilot-instructions.md."),
-    claude: bool = typer.Option(False, help="Generate .claude/commands/ for Claude Code."),
-    modes: bool = typer.Option(True, help="Generate /plan /execute /debug /review /ship slash command modes."),
-    overwrite: bool = typer.Option(False, "--overwrite", help="Overwrite existing files."),
 ):
     """
-    [bold green]Drop AI IDE config + slash command modes into a project.[/bold green]
+    [bold green]Drop AI IDE instruction files into a project.[/bold green]
 
-    Generates IDE config files (.cursorrules, AGENTS.md, copilot-instructions.md)
-    AND slash command skill files (/plan, /execute, /debug, /review, /ship)
-    for every detected IDE in the project.
-
-    Auto-detects which IDEs are present. Pass --claude to also generate
-    Claude Code command files.
+    Generates .cursorrules, .agents/AGENTS.md, and .github/copilot-instructions.md
+    to tell Cursor, Antigravity, and GitHub Copilot to use the .okf/ bundle as context.
 
     Examples:
         codemind init
-        codemind init --claude          # also generate .claude/commands/
-        codemind init --no-modes        # skip slash command generation
-        codemind init /path/to/project
+        codemind init /path/to/my-project
     """
     project_root = path.resolve()
-    bundle_path  = project_root / ".okf"
+    bundle_path = project_root / ".okf"
 
-    # ── Pre-flight warning ─────────────────────────────────────────────────────
     if not bundle_path.exists():
         console.print(
-            "[yellow]⚠ No .okf bundle found.[/yellow] "
-            "Run [bold cyan]codemind index .[/bold cyan] first for full OKF context.\n"
+            "[yellow]⚠ No .okf bundle found. Run [bold]codemind index .[/bold] first.[/yellow]"
         )
 
-    # ── Step 1: Base IDE config files ──────────────────────────────────────────
     template_content = {
         "cursorrules": (TEMPLATES_DIR / "cursorrules.txt").read_text(encoding="utf-8"),
-        "agents_md":   (TEMPLATES_DIR / "agents_md.txt").read_text(encoding="utf-8"),
-        "copilot":     (TEMPLATES_DIR / "copilot_instructions.txt").read_text(encoding="utf-8"),
+        "agents_md": (TEMPLATES_DIR / "agents_md.txt").read_text(encoding="utf-8"),
+        "copilot": (TEMPLATES_DIR / "copilot_instructions.txt").read_text(encoding="utf-8"),
     }
 
-    base_files: list[tuple[str, str]] = []   # (display_path, status)
+    created = []
 
     if cursor:
         dest = project_root / ".cursorrules"
-        if not dest.exists() or overwrite:
-            dest.write_text(template_content["cursorrules"], encoding="utf-8")
-            base_files.append((str(dest.relative_to(project_root)), "created"))
-        else:
-            base_files.append((str(dest.relative_to(project_root)), "exists"))
+        dest.write_text(template_content["cursorrules"], encoding="utf-8")
+        created.append(str(dest.relative_to(project_root)))
 
     if agents:
         agents_dir = project_root / ".agents"
         agents_dir.mkdir(exist_ok=True)
         dest = agents_dir / "AGENTS.md"
-        if not dest.exists() or overwrite:
-            dest.write_text(template_content["agents_md"], encoding="utf-8")
-            base_files.append((str(dest.relative_to(project_root)), "created"))
-        else:
-            base_files.append((str(dest.relative_to(project_root)), "exists"))
+        dest.write_text(template_content["agents_md"], encoding="utf-8")
+        created.append(str(dest.relative_to(project_root)))
 
     if copilot:
         gh_dir = project_root / ".github"
         gh_dir.mkdir(exist_ok=True)
         dest = gh_dir / "copilot-instructions.md"
-        if not dest.exists() or overwrite:
-            dest.write_text(template_content["copilot"], encoding="utf-8")
-            base_files.append((str(dest.relative_to(project_root)), "created"))
-        else:
-            base_files.append((str(dest.relative_to(project_root)), "exists"))
-
-    # ── Step 2: OKF state files (.okf/plan.md, .okf/state.md) ─────────────────
-    state_files_created = init_okf_state_files(project_root, overwrite=overwrite)
-
-    # ── Step 3: Slash command modes ────────────────────────────────────────────
-    modes_result = None
-    if modes:
-        # Auto-detect IDEs already configured + respect explicit flags
-        detected = detect_ides(project_root)
-        if claude:
-            detected.add(IDE.CLAUDE)
-        if not agents:
-            detected.discard(IDE.ANTIGRAVITY)
-        if not cursor:
-            detected.discard(IDE.CURSOR)
-        if not copilot:
-            detected.discard(IDE.COPILOT)
-
-        # Always include Antigravity and Copilot as defaults if flags are on
-        if agents:
-            detected.add(IDE.ANTIGRAVITY)
-        if copilot:
-            detected.add(IDE.COPILOT)
-
-        modes_result = generate_modes(project_root, detected, overwrite=overwrite)
-
-    # ── Output: Base config table ──────────────────────────────────────────────
-    base_table = Table(show_header=True, box=None, padding=(0, 2))
-    base_table.add_column("File", style="cyan")
-    base_table.add_column("Status", justify="right")
-
-    for fpath, status in base_files:
-        icon = "[green]✓ created[/green]" if status == "created" else "[dim]⏭ exists[/dim]"
-        base_table.add_row(fpath, icon)
-
-    for sp in state_files_created:
-        base_table.add_row(
-            str(sp.relative_to(project_root)),
-            "[green]✓ created[/green]",
-        )
+        dest.write_text(template_content["copilot"], encoding="utf-8")
+        created.append(str(dest.relative_to(project_root)))
 
     console.print(Panel(
-        base_table,
-        title="[bold green]✓ IDE Config Files[/bold green]",
+        "\n".join(f"[green]✓[/green] [cyan]{f}[/cyan]" for f in created),
+        title="[bold green]✓ AI IDE Config Files Created[/bold green]",
         border_style="green",
     ))
-
-    # ── Output: Modes table ────────────────────────────────────────────────────
-    if modes_result and modes_result.files:
-        modes_table = Table(show_header=True, box=None, padding=(0, 2))
-        modes_table.add_column("Mode", style="cyan", min_width=10)
-        modes_table.add_column("IDE", style="yellow", min_width=14)
-        modes_table.add_column("File", style="dim")
-        modes_table.add_column("Status", justify="right")
-
-        for gf in modes_result.files:
-            icon = "[green]✓ created[/green]" if gf.created else "[dim]⏭ exists[/dim]"
-            try:
-                display_path = str(gf.path.relative_to(project_root))
-            except ValueError:
-                display_path = str(gf.path)
-            modes_table.add_row(
-                f"/{gf.mode}",
-                gf.ide.value,
-                display_path,
-                icon,
-            )
-
-        console.print(Panel(
-            modes_table,
-            title="[bold cyan]⚡ Slash Command Modes[/bold cyan]",
-            border_style="cyan",
-        ))
-
-        if modes_result.created_count > 0:
-            ide_list = ", ".join(i.value for i in sorted(modes_result.ides_touched, key=lambda x: x.value))
-            console.print(
-                f"\n[green]✓[/green] [bold]{modes_result.created_count} mode files[/bold] generated "
-                f"for: [yellow]{ide_list}[/yellow]\n"
-                "[dim]Open your IDE and type [bold]/[/bold] to see "
-                "[cyan]/plan  /execute  /debug  /review  /ship[/cyan][/dim]\n"
-            )
-    elif modes:
-        console.print("[yellow]⚠ No mode files generated — check templates/modes/shared/ exists.[/yellow]\n")
-
     console.print(
-        "[dim]OKF context files:[/dim] [cyan].okf/plan.md[/cyan] · "
-        "[cyan].okf/state.md[/cyan] · [cyan].okf/memory.md[/cyan]\n"
+        "\n[dim]These files tell Cursor, Antigravity, and Copilot to use [/dim]"
+        "[cyan].okf/index.md[/cyan][dim] as their primary codebase context.[/dim]\n"
     )
 
 

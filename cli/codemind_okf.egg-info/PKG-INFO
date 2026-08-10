@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: codemind-okf
-Version: 1.2.0
+Version: 1.1.0
 Summary: CodeMind OKF CLI — Generate AI-ready knowledge bundles for any codebase. Works with Cursor, Antigravity, GitHub Copilot, and any MCP-compatible AI IDE.
 Author-email: Yash Gondaliya <yashGondaliya36@gmail.com>
 License: MIT

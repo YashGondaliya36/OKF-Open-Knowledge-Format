@@ -33,23 +33,6 @@ The `.okf/` bundle is structured knowledge — not raw code. It was pre-processe
 - Human-readable summaries with architecture-level context
 
 ## Bundle Location
-`.okf/index.md`  — start here for full project overview
-`.okf/modules/`  — individual module knowledge files
-`.okf/log.md`    — generation history and timestamps
-`.okf/memory.md` — permanent AI decisions + bug log
-`.okf/plan.md`   — active feature plan (tasks)
-`.okf/state.md`  — current workflow state
-
-## Slash Command Modes
-
-This project has CodeMind modes installed. Use these slash commands in any AI chat:
-
-| Command    | Purpose                                                              |
-|------------|----------------------------------------------------------------------|
-| `/plan`    | Deep planning — understand, design, detect conflicts, task list      |
-| `/execute` | YAGNI-first implementation with full OKF module context              |
-| `/debug`   | Scientific debugging — hypothesis → isolate → fix → log              |
-| `/review`  | Audit plan vs reality, code quality, architecture                    |
-| `/ship`    | Release — verify done, generate changelog, version bump, archive     |
-
-State is shared across ALL IDEs via `.okf/*.md` files (git-tracked).
+`.okf/index.md` — start here for full project overview
+`.okf/modules/` — individual module knowledge files
+`.okf/log.md`   — generation history and timestamps
